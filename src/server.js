@@ -20,6 +20,7 @@ PostgresStore.init()
 var app = express()
 
 app.use(logger('dev'))
+app.use(cors())
 app.use(session({
   store: new PgSession({
     pool: PostgresStore.pool
