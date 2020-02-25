@@ -1,0 +1,28 @@
+version: '2'
+
+services:
+  postgres:
+    image: postgres:alpine
+    user: root
+    environment:
+      POSTGRES_USER: 'hephaistos'
+      POSTGRES_DB: 'hephaistos'
+      POSTGRES_PASSWORD: 'YOUR_DATABASE_PASSWORD'
+    volumes:
+      - ./data/postgresql:/var/lib/postgressql/
+      - /etc/passwd:/etc/passwd:ro
+    ports:
+      - '5432:5432'
+    networks:
+      - postgres
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: 'root@localhost'
+      PGADMIN_DEFAULT_PASSWORD: 'YOUR_DATABASE_PASSWORD'
+    ports:
+      - '8081:80'
+    networks:
+      - postgres
+networks:
+  postgres:

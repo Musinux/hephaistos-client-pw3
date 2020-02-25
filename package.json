@@ -1,0 +1,40 @@
+{
+  "name": "hephaistos-client2",
+  "description": "A Vue.js project",
+  "author": "Louis Cherel <cherel.louis@gmail.com>",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "DEBUG=hephaistos:* nodemon src/server",
+    "reset": "node src/utils/init.js",
+    "init": "node src/utils/init.js",
+    "start": "NODE_ENV=production node src/server"
+  },
+  "engines": {
+    "node": ">=7.0",
+    "npm": ">=4.0"
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "bcrypt": "^4.0.0",
+    "connect-pg-simple": "^6.1.0",
+    "cookie-parser": "^1.4.4",
+    "debug": "^4.1.1",
+    "express": "^4.15.2",
+    "express-session": "^1.17.0",
+    "morgan": "^1.9.1",
+    "passport": "^0.4.1",
+    "passport-local": "^1.0.0",
+    "pg": "^7.18.1",
+    "pgtools": "^0.3.0",
+    "serve-favicon": "^2.3.2"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-esnext": "^4.0.0",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-node": "^11.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1"
+  }
+}
