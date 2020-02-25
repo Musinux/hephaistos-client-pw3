@@ -6,6 +6,8 @@ class Exercise {
   /** @type {Number} */
   id
   /** @type {String} */
+  lang
+  /** @type {String} */
   instructions
   /** @type {String} */
   tests
@@ -114,6 +116,7 @@ class Exercise {
     CREATE TABLE ${Exercise.tableName} (
       id SERIAL PRIMARY KEY,
       title TEXT,
+      lang TEXT,
       instructions TEXT,
       tests TEXT,
       solution TEXT,
