@@ -5,6 +5,7 @@ const logger = require('morgan')
 const session = require('express-session')
 const passport = require('passport')
 const debug = require('debug')('hephaistos:server.js')
+const cors = require('cors')
 
 const config = require('./server.config.js')
 const PostgresStore = require('./utils/PostgresStore.js')
