@@ -5,6 +5,7 @@ module.exports = {
   ADMIN_FIRSTNAME: 'Prénom',
   ADMIN_LASTNAME: 'NOM',
   SESSION_SECRET: 'randomsessionsecret',
+  WEB_CLIENT_URL: 'http://localhost:8080',
   postgres: {
     user: 'hephaistos',
     host: 'localhost',

@@ -21,7 +21,10 @@ PostgresStore.init()
 var app = express()
 
 app.use(logger('dev'))
-app.use(cors())
+app.use(cors({
+  credentials: true,
+  origin: config.WEB_CLIENT_URL || 'http://localhost:8080'
+}))
 app.use(session({
   store: new PgSession({
     pool: PostgresStore.pool
