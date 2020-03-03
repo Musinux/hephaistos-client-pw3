@@ -12,19 +12,11 @@ const state = {
 
 const getters = {
   getSessionById: state => id => {
-    const found = state.sessions.find(_ => _.id === id)
-    if (found) return found
-    return {
-      id: null,
-      lang: '',
-      title: '',
-      instructions: ''
-    }
+    return state.sessions.find(_ => _.id === id)
   },
 
   getSessionsByModuleId: state => moduleId => {
-    const found = state.sessions.filter(_ => _.moduleId === moduleId)
-    return found
+    return state.sessions.filter(_ => _.moduleId === moduleId)
   }
 }
 
