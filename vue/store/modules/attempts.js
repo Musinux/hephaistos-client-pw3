@@ -13,14 +13,7 @@ const state = {
 
 const getters = {
   getAttemptById: state => id => {
-    const found = state.attempts.find(_ => _.id === parseInt(id))
-    if (found) return found
-    return {
-      id: null,
-      lang: '',
-      title: '',
-      instructions: ''
-    }
+    return state.attempts.find(_ => _.id === parseInt(id))
   },
 
   getLastAttemptForExercise: state => exerciseId => {
