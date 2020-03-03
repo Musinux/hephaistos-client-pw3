@@ -1,6 +1,8 @@
 const config = require('../server.config.js')
 const PostgresStore = require('../utils/PostgresStore.js')
 const LocalStrategy = require('passport-local').Strategy
+const PlatformRole = require('./platform-role.model.js')
+const RoleAccessRight = require('./role-access-right.model.js')
 // const debug = require('debug')('hephaistos:exercise.model.js')
 const bcrypt = require('bcrypt')
 
@@ -26,6 +28,40 @@ class User {
   email
   /** @type {String} */
   password
+  /** @type {{id: Number, name: String, rights: String[]}} */
+  role // only on current user for session
+
+  /**
+   * @param {Object.<('id'|'firstname'|'lastname'|'email'|'password'), any>} obj
+   */
+  constructor (obj) {
+    this.id = obj.id
+    this.firstname = obj.firstname
+    this.lastname = obj.lastname
+    this.email = obj.email
+    this.password = obj.password
+  }
+
+  /**
+   * @param {String} right
+   */
+  async hasGlobalAccessRight (right) {
+    if (!this.role || !this.role.rights) return false
+    return !!this.role.rights.find(r => r === right)
+  }
+
+  /**
+   * @param {String} email
+   * @param {Array<('id'|'firstname'|'lastname'|'email'|'password')>} scope
+   * @returns {Promise<User|null>}
+   */
+  static async getByEmail (email, scope) {
+    const result = await PostgresStore.pool.query({
+      text: `SELECT ${scope.join(', ')} FROM ${User.tableName} WHERE email=$1`,
+      values: [email]
+    })
+    return result.rows[0] || null
+  }
 
   /**
    * @param {import('passport')} passport
@@ -35,6 +71,7 @@ class User {
       try {
         const user = await User.isUserValid(email, password)
         if (user) {
+          user.role = await User.getRoles(user)
           cb(null, user)
         } else {
           cb(null, false)
@@ -48,11 +85,33 @@ class User {
     passport.deserializeUser(async (id, cb) => {
       try {
         const user = await User.findById(id)
-        cb(null, user)
+        if (user) {
+          user.role = await User.getRoles(user)
+          cb(null, user)
+        } else {
+          cb(null, false)
+        }
       } catch (err) {
         cb(err)
       }
     })
+  }
+
+  /**
+   * @param {User} user
+   * @returns {Promise<{id: Number, name: String, rights: String[]}>}
+   */
+  static async getRoles (user) {
+    const role = await PlatformRole.getUserRole(user)
+    if (role) {
+      const rights = await RoleAccessRight.getByRoleId(role.id)
+      return {
+        id: role.id,
+        name: role.name,
+        rights: rights.map(r => r.access_right)
+      }
+    }
+    return { id: -1, name: 'NONE', rights: [] }
   }
 
   /**
@@ -66,7 +125,7 @@ class User {
       text: `SELECT id, firstname, lastname, email FROM ${User.tableName} WHERE id=$1`,
       values: [id]
     })
-    return result.rows[0]
+    return new User(result.rows[0])
   }
 
   /**
@@ -117,13 +176,13 @@ class User {
     console.log(`admin user informations:
     email: ${email}
     password: ${password} (can't be recovered, please save this)`)
-    return {
+    return PostgresStore.pool.query({
       text: `
       INSERT INTO ${User.tableName} (email, firstname, lastname, password)
       VALUES ($1, $2, $3, $4)
     `,
       values: [email, firstname, lastname, hashedPassword]
-    }
+    })
   }
 }
 

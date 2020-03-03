@@ -1,5 +1,5 @@
 const config = require('../../server.config.js')
-const axios = require('axios')
+const HephaistosService = require('../../utils/HephaistosService.js')
 
 /**
  * Création d'un exercice
@@ -8,17 +8,13 @@ const axios = require('axios')
  */
 async function postTryExerciseExecute (req, res) {
   const { lang, tests, solution } = req.body
-
   if (!['python'].includes(lang)) {
     throw new Error("Can't execute code for language " + lang)
   }
 
-  const result = await axios.post(`${config.HEPHAISTOS_URL}/${lang}/test`, {
-    content: Buffer.from(solution).toString('base64'),
-    test: Buffer.from(tests).toString('base64')
-  })
+  const result = await HephaistosService.execute(solution, tests, lang)
 
-  res.json(result.data)
+  res.json(result)
 }
 
 module.exports = postTryExerciseExecute
