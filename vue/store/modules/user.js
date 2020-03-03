@@ -31,7 +31,7 @@ const getters = {
 }
 
 const actions = {
-  async getUser ({ commit }) {
+  async fetchUser ({ commit }) {
     commit('AUTH_REQUEST')
     try {
       const { data } = await axios.get(api('/me'))
