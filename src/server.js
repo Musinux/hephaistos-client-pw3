@@ -27,7 +27,8 @@ app.use(cors({
 }))
 app.use(session({
   store: new PgSession({
-    pool: PostgresStore.pool
+    pool: PostgresStore.pool,
+    tableName: 'express_session'
   }),
   secret: config.SESSION_SECRET,
   resave: false
