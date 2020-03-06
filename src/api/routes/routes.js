@@ -23,6 +23,7 @@ const postSessionExerciseAttempt = require('../controllers/post.session.exercise
 const getSessionExerciseLastAttempt = require('../controllers/get.session.exercise.last-attempt.js')
 const postSessionExercise = require('../controllers/post.session.exercise.js')
 const putSessionExercise = require('../controllers/put.session.exercise.js')
+const getSession = require('../controllers/get.session.js')
 
 function isConnected (req, res, next) {
   if (req.user) {
@@ -62,6 +63,7 @@ function routes (passport) {
 
   router.get('/sessions', isConnected)
   router.post('/session', isConnected)
+  router.get('/session/:id', errors(getSession))
   router.put('/session/:id', isConnected)
   router.delete('/session/:id', isConnected)
 

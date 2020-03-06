@@ -24,6 +24,21 @@ class Session {
   creation_date
 
   /**
+   * @param {Number} sessionId
+   * @returns {Promise<Session>}
+   */
+  static async getById (sessionId) {
+    const result = await PostgresStore.pool.query({
+      text: `
+        SELECT id, name, creation_date FROM ${Session.tableName}
+        WHERE id=$1
+      `,
+      values: [sessionId]
+    })
+    return result.rows[0]
+  }
+
+  /**
    * @param {import('./user.model')} user
    * @param {Number} sessionId
    * @param {String} right
