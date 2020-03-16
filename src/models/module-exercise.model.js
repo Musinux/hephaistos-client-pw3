@@ -16,6 +16,16 @@ class ModuleExercise {
   sequence_id
 
   /**
+   * @param {Number} exerciseId
+   */
+  static async deleteAllForExercise (exerciseId) {
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${ModuleExercise.tableName} WHERE exercise_id=$1`,
+      values: [exerciseId]
+    })
+  }
+
+  /**
    * @param {import('./user.model')} user
    * @param {Number} moduleId
    * @param {String[]} scope

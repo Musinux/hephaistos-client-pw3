@@ -2,7 +2,6 @@
 const PostgresStore = require('../utils/PostgresStore.js')
 const debug = require('debug')('hephaistos:module-user-role.model.js')
 const User = require('./user.model.js')
-const Module = require('./module.model.js')
 const Role = require('./role.model.js')
 
 class ModuleUserRole {
@@ -14,26 +13,47 @@ class ModuleUserRole {
   role_id
 
   /**
+   * @param {Number} roleId
+   */
+  static async deleteAllForRole (roleId) {
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${ModuleUserRole.tableName} WHERE role_id=$1`,
+      values: [roleId]
+    })
+  }
+
+  /**
+   * @param {Number} userId
+   */
+  static async deleteAllForUser (userId) {
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${ModuleUserRole.tableName} WHERE user_id=$1`,
+      values: [userId]
+    })
+  }
+
+  /**
    * @param {Number} moduleId
    * @param {String[]} scope
    * @returns {Promise<User[]>}
    */
   static async getByModuleId (moduleId, scope) {
+    const Module = require('./module.model.js')
     const fields = scope.map(_ => _ === 'role'
-      ? 'r.name AS role'
-      : `user.${_} AS ${_}`
+      ? 'r.id AS role'
+      : `u.${_} AS ${_}`
     ).join(',')
 
     const result = await PostgresStore.pool.query({
-      text: `SELECT ${fields} FROM${User.tableName} AS user
+      text: `SELECT ${fields} FROM ${User.tableName} AS u
       LEFT JOIN ${ModuleUserRole.tableName} AS me
-       ON me.user_id = user.id
+       ON me.user_id = u.id
       LEFT JOIN ${Role.tableName} AS r
        ON r.id = me.role_id
-      LEFT JOIN  ${Module.tableName} AS module
+      LEFT JOIN ${Module.tableName} AS module
        ON module.id = me.module_id
       WHERE module.id = $1
-      ORDER BY r.name, user.lastname, user.firstname
+      ORDER BY r.name, u.lastname, u.firstname
       `,
       values: [moduleId]
     })
@@ -62,7 +82,11 @@ class ModuleUserRole {
   static async add (moduleId, userId, roleId) {
     const result = await PostgresStore.pool.query({
       text: `INSERT INTO ${ModuleUserRole.tableName} 
-        (module_id, user_id, role_id) VALUES ($1, $2, $3) RETURNING *`,
+        (module_id, user_id, role_id) VALUES ($1, $2, $3)
+        ON CONFLICT (module_id, user_id)
+        DO UPDATE
+         SET role_id = $3
+      RETURNING *`,
       values: [moduleId, userId, roleId]
     })
     debug('result', result.rows[0])
@@ -70,6 +94,7 @@ class ModuleUserRole {
   }
 
   static toSqlTable () {
+    const User = require('./user.model.js')
     const Module = require('./module.model.js')
     return [`
       CREATE TABLE ${ModuleUserRole.tableName} (

@@ -2,8 +2,9 @@ const config = require('../server.config.js')
 const PostgresStore = require('../utils/PostgresStore.js')
 const LocalStrategy = require('passport-local').Strategy
 const PlatformRole = require('./platform-role.model.js')
-const RoleAccessRight = require('./role-access-right.model.js')
-// const debug = require('debug')('hephaistos:exercise.model.js')
+const ExerciseAttempt = require('./exercise-attempt.model.js')
+const Role = require('./role.model.js')
+const debug = require('debug')('hephaistos:user.model.js')
 const bcrypt = require('bcrypt')
 
 /** @param {Number} length */
@@ -45,9 +46,38 @@ class User {
   /**
    * @param {String} right
    */
-  async hasGlobalAccessRight (right) {
+  hasGlobalAccessRight (right) {
     if (!this.role || !this.role.rights) return false
-    return !!this.role.rights.find(r => r === right)
+    return this.role.rights.includes(right)
+  }
+
+  /**
+   * @param {Number} page
+   * @param {Number} size
+   * @param {String[]} scope
+   * @returns {Promise<User[]>}
+   */
+  static async getAll (page, size, scope) {
+    const fields = scope.map(s => {
+      if (s === 'role') {
+        return 'r.id AS role'
+      }
+      return `u.${s} AS ${s}`
+    })
+    const result = await PostgresStore.pool.query({
+      text: `SELECT ${fields.join(', ')}
+      FROM ${User.tableName} AS u
+      LEFT JOIN ${PlatformRole.tableName} as pr
+        ON pr.user_id = u.id
+      LEFT JOIN ${Role.tableName} AS r
+        ON pr.role_id = r.id
+      ORDER BY u.id
+      OFFSET $1
+      LIMIT $2`,
+      values: [page * size, (page + 1) * size]
+    })
+    console.log('result.rows', result.rows)
+    return result.rows
   }
 
   /**
@@ -102,6 +132,7 @@ class User {
    * @returns {Promise<{id: Number, name: String, rights: String[]}>}
    */
   static async getRoles (user) {
+    const RoleAccessRight = require('./role-access-right.model.js')
     const role = await PlatformRole.getUserRole(user)
     if (role) {
       const rights = await RoleAccessRight.getByRoleId(role.id)
@@ -153,6 +184,96 @@ class User {
     return await bcrypt.compare(password, givenPassword)
       ? userRow
       : null
+  }
+
+  /**
+   * @param {Number} id
+   * @param {Object.<('firstname'|'lastname'|'email'|'role'), any>} params
+   * @returns {Promise<User>}
+   */
+  static async update (id, params) {
+    if (Object.keys(params).length === 0) return null
+    console.log('params', params)
+
+    // filter out any non-alphanumeric parameter
+    const fields = Object.keys(params)
+      .filter(_ => _ !== 'id' && _ !== 'creation_date' && !_.match(/[^a-z_]/))
+
+    let variables = fields.map((_, i) => `$${i + 1}`).join(', ')
+    const values = fields.map(_ => params[_])
+    let fieldNames = fields.join(',')
+
+    if (values.length > 1) {
+      fieldNames = `(${fieldNames})`
+      variables = `(${variables})`
+    }
+    values.push(id)
+
+    const result = await PostgresStore.pool.query({
+      text: `UPDATE ${User.tableName} SET ${fieldNames} = ${variables}
+        WHERE id=$${values.length} RETURNING *`,
+      values
+    })
+    debug('result', result.rows[0])
+    return result.rows[0]
+  }
+
+  /**
+   * @param {Number} id
+   */
+  static async delete (id) {
+    try {
+      const ModuleUserRole = require('./module-user-role.model.js')
+      await PostgresStore.pool.query('BEGIN')
+      await PlatformRole.deleteAllForUser(id)
+      await ExerciseAttempt.deleteAllForUser(id)
+      await ModuleUserRole.deleteAllForUser(id)
+      await PostgresStore.pool.query({
+        text: `DELETE FROM ${User.tableName} WHERE id=$1`,
+        values: [id]
+      })
+      await PostgresStore.pool.query('COMMIT')
+    } catch (err) {
+      await PostgresStore.pool.query('ROLLBACK')
+    }
+  }
+
+  /**
+   * @param {{firstname: String, lastname: String, email: String}[]} users
+   * @returns {Promise<User[]>}
+   */
+  static async createMultiple (users) {
+    let i = 1
+    const sqlValues = users.map(_ => `($${i++},$${i++},$${i++})`).join(', ')
+    const values = []
+    users.forEach(u => values.push(u.email, u.firstname, u.lastname))
+    const result = await PostgresStore.pool.query({
+      text: `
+      INSERT INTO ${User.tableName} (email, firstname, lastname)
+      VALUES ${sqlValues} RETURNING *
+    `,
+      values
+    })
+    return result.rows
+  }
+
+  /**
+   * @param {{firstname: String, lastname: String, email: String, password: String}} user
+   * @returns {Promise<User>}
+   */
+  static async create (user) {
+    let hashedPassword = null
+    if (user.password) {
+      hashedPassword = await bcrypt.hash(user.password, 10)
+    }
+    const result = await PostgresStore.pool.query({
+      text: `
+      INSERT INTO ${User.tableName} (email, firstname, lastname, password)
+      VALUES ($1, $2, $3, $4) RETURNING *
+    `,
+      values: [user.email, user.firstname, user.lastname, hashedPassword]
+    })
+    return result.rows[0]
   }
 
   static toSqlTable () {

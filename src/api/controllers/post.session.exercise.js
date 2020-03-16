@@ -15,7 +15,7 @@ async function postSessionExercise (req, res) {
     return
   }
   const {
-    visible_to_participants, title, lang, instructions, tests, solution,
+    visible_to_participants, title, lang, instructions, tests,
     template_regions, template_regions_rw, difficulty, score, creation_date
   } = req.body
   const exercise = await Exercise.create({
@@ -24,7 +24,6 @@ async function postSessionExercise (req, res) {
     lang,
     instructions,
     tests,
-    solution,
     template_regions,
     template_regions_rw,
     difficulty,

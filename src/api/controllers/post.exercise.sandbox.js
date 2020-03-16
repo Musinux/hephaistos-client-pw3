@@ -1,5 +1,5 @@
-const config = require('../../server.config.js')
 const HephaistosService = require('../../utils/HephaistosService.js')
+// const config = require('../../server.config.js')
 
 /**
  * Création d'un exercice
@@ -8,7 +8,7 @@ const HephaistosService = require('../../utils/HephaistosService.js')
  */
 async function postTryExerciseExecute (req, res) {
   const { lang, tests, solution } = req.body
-  if (!['python'].includes(lang)) {
+  if (!['python', 'c', 'javascript'].includes(lang)) {
     throw new Error("Can't execute code for language " + lang)
   }
 

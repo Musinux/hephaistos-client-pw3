@@ -3,11 +3,26 @@ const pgtools = require('pgtools')
 const { Pool } = require('pg')
 const showdown = require('showdown')
 const converter = new showdown.Converter()
+const fs = require('fs')
+const { promisify } = require('util')
+const writeFile = promisify(fs.writeFile)
+const path = require('path')
 
 const p = {
   user: postgres.user,
   password: postgres.password,
   host: postgres.host
+}
+
+/** @param {Number} length */
+function makeid (length) {
+  let result = ''
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const charactersLength = characters.length
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength))
+  }
+  return result
 }
 
 class PostgresStore {
@@ -32,6 +47,7 @@ class PostgresStore {
     await PostgresStore.runInitScripts()
     await this.createSessions()
     await PostgresStore.generateSampleExercises()
+    await PostgresStore.generateSampleUsers()
   }
 
   static async generateSampleExercises () {
@@ -45,7 +61,7 @@ class PostgresStore {
       name: '1A - S1 - Programmation Python',
       creation_date: new Date()
     })
-
+    let sequenceId = 1
     for (const s of sessions) {
       const session = await Session.create({
         module_id: module.id,
@@ -55,7 +71,8 @@ class PostgresStore {
         start_date: null,
         end_date: null,
         real_end_date: null,
-        creation_date: new Date()
+        creation_date: new Date(),
+        sequence_id: sequenceId++
       })
       for (const e of s.exercises) {
         const exercise = await Exercise.create({
@@ -64,9 +81,8 @@ class PostgresStore {
           lang: e.lang,
           instructions: converter.makeHtml(e.instructions),
           tests: e.tests,
-          solution: e.solution,
-          template_regions: e.template_regions,
-          template_regions_rw: e.template_regions_rw,
+          template_regions: [e.solution],
+          template_regions_rw: [0], // NO READ by default
           difficulty: e.difficulty,
           score: e.score,
           creation_date: e.creation_date
@@ -74,6 +90,38 @@ class PostgresStore {
         await SessionExercise.add(session.id, exercise.id, e.sequence_id)
       }
     }
+  }
+
+  static async generateSampleUsers () {
+    const users = []
+    const { names } = require('./sample_names.json')
+    const ModuleUserRole = require('../models/module-user-role.model.js')
+    const User = require('../models/user.model.js')
+    const moduleId = 1
+    const teacherRoleId = 2
+    const studentRoleId = 3
+    for (let i = 0; i < names.length; i++) {
+      const n = names[i]
+      const u = {
+        firstname: n.firstname,
+        lastname: n.lastname,
+        email: `${n.firstname.toLowerCase()}.${n.lastname.toLowerCase()}@gmail.com`,
+        password: makeid(10)
+      }
+      const user = await User.create(u)
+      users.push(u)
+      if (i < names.length / 2) {
+        u.role = 'STUDENT'
+        await ModuleUserRole.add(moduleId, user.id, studentRoleId)
+      } else if ((i - 2) < names.length / 2) {
+        u.role = 'TEACHER'
+        await ModuleUserRole.add(moduleId, user.id, teacherRoleId)
+      } else {
+        u.role = 'NONE'
+      }
+    }
+    await writeFile(path.join(__dirname, '../../saved_users.json'),
+      JSON.stringify(users, null, 2))
   }
 
   async buildTables () {

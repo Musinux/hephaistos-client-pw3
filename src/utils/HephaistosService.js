@@ -38,7 +38,7 @@ class HephaistosService {
    * @returns {Promise<APIResult>}
    */
   static async execute (solution, tests, lang) {
-    if (!['python'].includes(lang)) {
+    if (!['python', 'c', 'javascript'].includes(lang)) {
       throw new Error("Can't execute code for language " + lang)
     }
 

@@ -9,38 +9,44 @@ class Role {
   name
   /** @type {Date} */
   creation_date
+  /** @type {String[]} */
+  access_rights
+
+  /**
+   * @returns {Promise<Role[]>}
+   */
+  static async getAllWithAccessRights () {
+    const RoleAccessRight = require('./role-access-right.model.js')
+    const { rows: roles } = await PostgresStore.pool.query({
+      text: `SELECT * FROM ${Role.tableName}`
+    })
+    const { rows: accessRights } = await PostgresStore.pool.query({
+      text: `SELECT * FROM ${RoleAccessRight.tableName}`
+    })
+    roles.forEach(r => {
+      r.access_rights = accessRights.filter(ar => ar.role_id === r.id)
+    })
+    return roles
+  }
 
   /**
    * @returns {Promise<Role[]>}
    */
   static async getAll () {
     const result = await PostgresStore.pool.query({
-      text: `SELECT * FROM ${Role.tableName}`
+      text: `SELECT * FROM ${Role.tableName} ORDER BY id`
     })
     return result.rows
   }
 
   /**
     * @param {Number} id
-    * @param {Object.<('name'), any>} params */
-  static async update (id, params) {
-    if (Object.keys(params).length === 0) return null
-
-    // filter out any non-alphanumeric parameter
-    const fields = Object.keys(params)
-      .filter(_ => _ !== 'id' && _ !== 'creation_date' && !_.match(/[^a-z_]/))
-
-    const variables = fields.map((_, i) => `$${i + 1}`).join(', ')
-    const values = fields.map(_ => params[_])
-    const fieldNames = fields.join(',')
-
-    const result = await PostgresStore.pool.query({
-      text: `UPDATE ${Role.tableName} SET (${fieldNames}) = (${variables})
-        WHERE id=$${values.length} RETURNING *`,
-      values: [...values, id]
+    * @param {String} name */
+  static async update (id, name) {
+    await PostgresStore.pool.query({
+      text: `UPDATE ${Role.tableName} SET name = $2 WHERE id=$1`,
+      values: [id, name]
     })
-    debug('result', result.rows[0])
-    return result.rows[0]
   }
 
   /** @param {Object.<('name'|'creation_date'), any>} params */
@@ -64,14 +70,31 @@ class Role {
     return result.rows[0]
   }
 
+  /**
+   * @param {Number} id
+   */
+  static async delete (id) {
+    const PlatformRole = require('./platform-role.model.js')
+    const ModuleUserRole = require('./module-user-role.model.js')
+    const RoleAccessRight = require('./role-access-right.model.js')
+
+    await PlatformRole.deleteAllForRole(id)
+    await ModuleUserRole.deleteAllForRole(id)
+    await RoleAccessRight.removeAllForRole(id)
+
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${Role.tableName} WHERE id=$1`,
+      values: [id]
+    })
+  }
+
   static toSqlTable () {
     return `
     CREATE TABLE ${Role.tableName} (
       id SERIAL PRIMARY KEY,
       name TEXT,
       creation_date TIMESTAMP NOT NULL
-    )
-    `
+    )`
   }
 
   static async initScript () {
@@ -107,9 +130,10 @@ class Role {
       accessRight.module.delete,
       accessRight.module.create,
       accessRight.module.edit_admin,
-      accessRight.user.create,
-      accessRight.user.delete,
-      accessRight.user.edit
+      accessRight.user.view,
+      accessRight.user.manage,
+      accessRight.role.manage,
+      accessRight.role.add_to_user
     ]
 
     await PostgresStore.pool.query({

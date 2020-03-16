@@ -1,18 +1,18 @@
 const accessRights = require('../../models/access-rights.definition.js')
-const Module = require('../../models/module.model.js')
+const Role = require('../../models/role.model.js')
 
 /**
  * @param { import('express').Request } req
  * @param { import('express').Response } res
  */
-async function createModule (req, res) {
-  if (!req.user.hasGlobalAccessRight(accessRights.module.create)) {
+async function postRole (req, res) {
+  if (!req.user.hasGlobalAccessRight(accessRights.role.manage)) {
     res.sendStatus(401)
     return
   }
   const { name } = req.body
   const creationDate = new Date()
-  res.json(await Module.create({ name, creation_date: creationDate }))
+  res.json(await Role.create({ name, creation_date: creationDate }))
 }
 
-module.exports = createModule
+module.exports = postRole

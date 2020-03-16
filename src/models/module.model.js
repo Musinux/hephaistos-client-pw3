@@ -70,33 +70,15 @@ class Module {
 
   /**
     * @param {Number} id
-    * @param {Object.<('name'), any>} params
+    * @param {String} name
     * @returns {Promise<Module>}
     */
-  static async update (id, params) {
-    if (Object.keys(params).length === 0) return null
-
-    // filter out any non-alphanumeric parameter
-    const fields = Object.keys(params)
-      .filter(_ => _ !== 'id' && _ !== 'creation_date' && !_.match(/[^a-z_]/))
-
-    const variables = fields.map((_, i) => `$${i + 1}`).join(', ')
-    const values = fields.map(_ => params[_])
-    const fieldNames = fields.join(',')
-
-    values.push(id)
-
-    // TODO: move the current entry in a _revisions table, and update the
-    // current one
-    const q = {
-      text: `UPDATE ${Module.tableName} SET (${fieldNames}) = (${variables})
-        WHERE id=$${values.length} RETURNING *`,
-      values
-    }
-
-    debug('q', q)
-
-    const result = await PostgresStore.pool.query(q)
+  static async update (id, name) {
+    const result = await PostgresStore.pool.query({
+      text: `UPDATE ${Module.tableName} SET name = $1
+        WHERE id=$2 RETURNING *`,
+      values: [name, id]
+    })
     debug('result', result.rows[0])
     return result.rows[0]
   }
@@ -127,6 +109,46 @@ class Module {
     const result = await PostgresStore.pool.query(q)
     debug('result', result.rows[0])
     return result.rows[0]
+  }
+
+  /**
+   * @param {Number} id
+   */
+  static async delete (id) {
+    const Exercise = require('./exercise.model.js')
+    const ModuleExercise = require('./module-exercise.model.js')
+    const Session = require('./session.model.js')
+    const ModuleUserRole = require('./module-user-role.model.js')
+
+    const sessions = await Session.getByModuleId(id)
+
+    for (const session of sessions) {
+      await Session.delete(session.id)
+    }
+    const { rows: exercises } = await PostgresStore.pool.query({
+      text: `SELECT exercise_id as id FROM ${ModuleExercise.tableName}
+        WHERE module_id = $1`,
+      values: [id]
+    })
+    for (const exercise of exercises) {
+      await Exercise.delete(exercise.id)
+    }
+
+    try {
+      await PostgresStore.pool.query('BEGIN')
+      await PostgresStore.pool.query({
+        text: `DELETE FROM ${ModuleUserRole.tableName} WHERE module_id=$1`,
+        values: [id]
+      })
+      await PostgresStore.pool.query({
+        text: `DELETE FROM ${Module.tableName} WHERE id=$1`,
+        values: [id]
+      })
+      await PostgresStore.pool.query('COMMIT')
+    } catch (err) {
+      await PostgresStore.pool.query('ROLLBACK')
+      throw err
+    }
   }
 
   static toSqlTable () {

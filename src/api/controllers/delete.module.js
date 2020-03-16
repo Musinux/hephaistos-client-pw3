@@ -5,14 +5,15 @@ const Module = require('../../models/module.model.js')
  * @param { import('express').Request } req
  * @param { import('express').Response } res
  */
-async function editModule (req, res) {
+async function deleteModule (req, res) {
   const id = parseInt(req.params.id)
+
   if (!req.user.hasGlobalAccessRight(accessRights.module.edit_admin)) {
     res.sendStatus(401)
     return
   }
-  const { name } = req.body
-  res.json(await Module.update(id, name))
+  await Module.delete(id)
+  res.json({ success: true })
 }
 
-module.exports = editModule
+module.exports = deleteModule

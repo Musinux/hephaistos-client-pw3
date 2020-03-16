@@ -1,7 +1,6 @@
 /* eslint camelcase: 0 */
 const PostgresStore = require('../utils/PostgresStore.js')
 // const debug = require('debug')('hephaistos:platform-role.model.js')
-const User = require('./user.model.js')
 const RoleAccessRight = require('./role-access-right.model.js')
 const Role = require('./role.model.js')
 const config = require('../server.config.js')
@@ -17,13 +16,33 @@ class PlatformRole {
   role_id
 
   /**
-   * @param {User} user
+   * @param {Number} roleId
+   */
+  static async deleteAllForRole (roleId) {
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${PlatformRole.tableName} WHERE role_id=$1`,
+      values: [roleId]
+    })
+  }
+
+  /**
+   * @param {Number} userId
+   */
+  static async deleteAllForUser (userId) {
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${PlatformRole.tableName} WHERE user_id=$1`,
+      values: [userId]
+    })
+  }
+
+  /**
+   * @param {import('./user.model.js')} user
    * @return {Promise<{ id: Number, name: String }>}
    */
   static async getUserRole (user) {
     const result = await PostgresStore.pool.query({
       text: `SELECT role.id as id, role.name as name FROM ${Role.tableName} as role
-        LEFT JOIN ${PlatformRole.tableName} as pr
+        LEFT JOIN ${PlatformRole.tableName} AS pr
           ON pr.role_id = role.id
         WHERE pr.user_id = $1
         LIMIT 1`,
@@ -51,13 +70,12 @@ class PlatformRole {
 
   /**
    * @param {Number} userId
-   * @param {Number} roleId
    */
-  static async remove (userId, roleId) {
+  static async remove (userId) {
     await PostgresStore.pool.query({
       text: `DELETE FROM ${PlatformRole.tableName} 
-        WHERE user_id=$1 AND role_id=$2`,
-      values: [userId, roleId]
+        WHERE user_id=$1`,
+      values: [userId]
     })
   }
 
@@ -68,7 +86,11 @@ class PlatformRole {
   static async add (userId, roleId) {
     await PostgresStore.pool.query({
       text: `INSERT INTO ${PlatformRole.tableName} 
-        (user_id, role_id) VALUES ($1, $2)`,
+        (user_id, role_id) VALUES ($1, $2)
+        ON CONFLICT (user_id, role_id)
+        DO UPDATE
+         SET role_id = $2
+      `,
       values: [userId, roleId]
     })
   }

@@ -15,12 +15,12 @@ async function postSessionExerciseAttempt (req, res) {
     return
   }
 
-  if (typeof req.body.solution !== 'string') {
+  if (!Array.isArray(req.body.regions)) {
     res.sendStatus(400)
     return
   }
 
-  const result = await ExerciseAttempt.create(req.user, sessId, id, req.body.solution)
+  const result = await ExerciseAttempt.create(req.user, sessId, id, req.body.regions)
 
   res.json(result)
 }

@@ -23,26 +23,39 @@ class RoleAccessRight {
   }
 
   /**
-   * @param {Number} moduleId
-   * @param {String} accessRight
+   * @param {Number} roleId
    */
-  static async remove (moduleId, accessRight) {
+  static async removeAllForRole (roleId) {
     return PostgresStore.pool.query({
       text: `DELETE FROM ${RoleAccessRight.tableName} 
-        WHERE role_id=$1 AND access_right=$2`,
-      values: [moduleId, accessRight]
+        WHERE role_id=$1`,
+      values: [roleId]
     })
   }
 
   /**
-   * @param {Number} moduleId
+   * @param {Number} roleId
    * @param {String} accessRight
    */
-  static async add (moduleId, accessRight) {
+  static async remove (roleId, accessRight) {
+    return PostgresStore.pool.query({
+      text: `DELETE FROM ${RoleAccessRight.tableName} 
+        WHERE role_id=$1 AND access_right=$2`,
+      values: [roleId, accessRight]
+    })
+  }
+
+  /**
+   * @param {Number} roleId
+   * @param {String} accessRight
+   */
+  static async add (roleId, accessRight) {
     return PostgresStore.pool.query({
       text: `INSERT INTO ${RoleAccessRight.tableName} 
-        (role_id, access_right) VALUES ($1, $2)`,
-      values: [moduleId, accessRight]
+        (role_id, access_right) VALUES ($1, $2)
+        ON CONFLICT (role_id, access_right)
+        DO NOTHING`,
+      values: [roleId, accessRight]
     })
   }
 

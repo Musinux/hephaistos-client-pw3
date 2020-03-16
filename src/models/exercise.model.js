@@ -2,6 +2,9 @@
 const PostgresStore = require('../utils/PostgresStore.js')
 const HephaistosService = require('../utils/HephaistosService.js')
 const debug = require('debug')('hephaistos:exercise.model.js')
+const REGION_RW = 6
+// const REGION_RO = 4
+// const REGION_NOREAD = 0
 
 class Exercise {
   /** @type {Number} */
@@ -18,8 +21,6 @@ class Exercise {
   tests
   /** @type {String[]} */
   test_names
-  /** @type {String} */
-  solution
   /** @type {String[]} */
   template_regions
   /** @type {Number[]} */
@@ -66,6 +67,63 @@ class Exercise {
   }
 
   /**
+   * @param {Number} sessionId
+   */
+  static async deleteAllForSession (sessionId) {
+    const ExerciseAttempt = require('./exercise-attempt.model.js')
+    const SessionExercise = require('./session-exercise.model.js')
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${ExerciseAttempt.tableName} AS attempt
+      USING ${SessionExercise.tableName} AS sess_exo
+      WHERE sess_exo.session_id = $1
+      AND attempt.exercise_id = sess_exo.exercise_id`,
+      values: [sessionId]
+    })
+    const result = await PostgresStore.pool.query({
+      text: `SELECT * FROM ${SessionExercise.tableName} AS sess_exo
+      WHERE sess_exo.session_id = $1`,
+      values: [sessionId]
+    })
+    await PostgresStore.pool.query({
+      text: `DELETE FROM ${SessionExercise.tableName} AS sess_exo
+      WHERE sess_exo.session_id = $1`,
+      values: [sessionId]
+    })
+    if (result.rows.length) {
+      const ids = result.rows.map(r => r.exercise_id)
+      const val = ids.map((_, i) => '$' + (i + 1))
+      await PostgresStore.pool.query({
+        text: `DELETE FROM ${Exercise.tableName} AS exo
+      WHERE exo.id IN (${val.join(', ')})`,
+        values: ids
+      })
+    }
+  }
+
+  /**
+   * @param {Number} id
+   */
+  static async delete (id) {
+    try {
+      const ExerciseAttempt = require('./exercise-attempt.model.js')
+      const SessionExercise = require('./session-exercise.model.js')
+      const ModuleExercise = require('./module-exercise.model.js')
+
+      await PostgresStore.pool.query('BEGIN')
+      await ExerciseAttempt.deleteAllForExercise(id)
+      await SessionExercise.deleteAllForExercise(id)
+      await ModuleExercise.deleteAllForExercise(id)
+      await PostgresStore.pool.query({
+        text: `DELETE FROM ${Exercise.tableName} WHERE id=$1`,
+        values: [id]
+      })
+      await PostgresStore.pool.query('COMMIT')
+    } catch (err) {
+      await PostgresStore.pool.query('ROLLBACK')
+    }
+  }
+
+  /**
    * @param {Number} id
    * @param {Number} sessionId
    * @param {Object.<('instructions'|'tests'|'solution'|'template_regions'|'template_regions_rw'|'difficulty'|'score'|'creation_date'), any>} params
@@ -80,9 +138,14 @@ class Exercise {
     }
 
     if (params.tests && params.tests.length && params.lang) {
-      const testResults = await HephaistosService.execute('', params.tests, params.lang)
-      params.test_names = testResults.result.tests.map(t => t.name)
+      const solution = params.template_regions.join('\n')
+      const testResults = await HephaistosService.execute(solution, params.tests, params.lang)
+      if (testResults.result) {
+        params.test_names = testResults.result.tests.map(t => t.name)
+      }
     }
+
+    Exercise.sensibleDefaultRegions(params.template_regions, params.template_regions_rw)
 
     // filter out any non-alphanumeric parameter
     const fields = Object.keys(params)
@@ -108,14 +171,36 @@ class Exercise {
     return result.rows[0]
   }
 
-  /** @param {Object.<('lang'|'instructions'|'tests'|'solution'|'template_regions'|'template_regions_rw'|'difficulty'|'score'|'creation_date'), any>} params */
+  /** @param {String[]} templateRegions
+   *  @param {Number[]} templateRegionsRw
+  */
+  static sensibleDefaultRegions (templateRegions, templateRegionsRw) {
+    /**
+     * sensible defaults: please have at least one read+write region !
+     */
+    if (templateRegions && templateRegions.length === 1) {
+      if (templateRegions[0].replace(/[\r\n]/g, '') === '') {
+        templateRegionsRw[0] = REGION_RW
+      }
+      if (templateRegionsRw[0] !== REGION_RW) {
+        templateRegions.push('\n')
+        templateRegionsRw.push(REGION_RW)
+      }
+    }
+  }
+
+  /** @param {Object.<('lang'|'instructions'|'tests'|'template_regions'|'template_regions_rw'|'difficulty'|'score'|'creation_date'), any>} params */
   static async create (params) {
     if (Object.keys(params).length === 0) return null
 
     if (params.tests && params.tests.length && params.lang) {
       const testResults = await HephaistosService.execute('', params.tests, params.lang)
-      params.test_names = testResults.result.tests.map(t => t.name)
+      if (testResults.result) {
+        params.test_names = testResults.result.tests.map(t => t.name)
+      }
     }
+
+    Exercise.sensibleDefaultRegions(params.template_regions, params.template_regions_rw)
 
     // filter out any non-alphanumeric parameter
     const fields = Object.keys(params)
@@ -144,7 +229,6 @@ class Exercise {
       instructions TEXT,
       tests TEXT,
       test_names TEXT [],
-      solution TEXT,
       template_regions TEXT [],
       template_regions_rw SMALLINT [], -- READ/WRITE access to students for specific
                                        -- regions, it has to be seemless

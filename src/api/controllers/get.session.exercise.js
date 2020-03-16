@@ -1,6 +1,7 @@
 const accessRights = require('../../models/access-rights.definition.js')
 const Exercise = require('../../models/exercise.model.js')
 const Session = require('../../models/session.model.js')
+const REGION_NOREAD = 0
 
 /**
  * @param { import('express').Request } req
@@ -17,10 +18,14 @@ async function getSessionExercise (req, res) {
     'lang', 'title', 'difficulty', 'score', 'test_names',
     'instructions', 'tests', 'template_regions', 'template_regions_rw']
 
-  if (await Session.hasAccessRight(req.user, sessId, accessRights.module.edit)) {
-    scope.push('solution')
+  const exercise = await Exercise.findById(id, scope)
+  if (!await Session.hasAccessRight(req.user, sessId, accessRights.module.edit)) {
+    if (exercise.template_regions_rw) {
+      exercise.template_regions = exercise.template_regions
+        .filter((r, i) => exercise.template_regions_rw[i] !== REGION_NOREAD)
+    }
   }
-  res.json(await Exercise.findById(id, scope))
+  res.json(exercise)
 }
 
 module.exports = getSessionExercise
