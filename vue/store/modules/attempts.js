@@ -49,16 +49,16 @@ const actions = {
       commit('addAttempt', { attempt: data })
     } catch (err) {
       // if 404 error, ignore the error, if not, throw
-      if (err.response.status !== 404) {
+      if (err.response && err.response.status !== 404) {
         throw err
       }
     }
   },
 
-  async createAttemptForSession ({ commit }, { exerciseId, sessionId, solution }) {
+  async createAttemptForSession ({ commit }, { exerciseId, sessionId, regions }) {
     const url = '/session/' + sessionId + '/exercise/' + exerciseId + '/attempt'
     /** @type {import('../../../src/utils/HephaistosService').APIResult} */
-    const results = (await axios.post(api(url), { solution })).data
+    const results = (await axios.post(api(url), { regions })).data
     commit('setLastAttemptResults', { results: results.result })
     if (!results.result.stats.errors && !results.result.stats.failures) {
       commit('exercises/setValidated', { exerciseId }, { root: true })

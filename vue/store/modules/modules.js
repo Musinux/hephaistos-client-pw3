@@ -11,9 +11,7 @@ const state = {
 }
 
 const getters = {
-  getModuleById: state => id => {
-    return state.modules.find(_ => _.id === parseInt(id))
-  }
+  getModuleById: state => id => state.modules.find(_ => _.id === parseInt(id))
 }
 
 const mutations = {
@@ -23,6 +21,12 @@ const mutations = {
       state.modules[existing] = module
     } else {
       state.modules.push(module)
+    }
+  },
+  removeModule (state, { moduleId }) {
+    const existing = state.modules.findIndex(e => e.id === moduleId)
+    if (existing !== -1) {
+      state.modules.splice(existing, 1)
     }
   }
 }
@@ -39,15 +43,17 @@ const actions = {
   },
 
   async createModule ({ commit }, { module }) {
-    if (!module) {
-      throw new Error('createModule shouldnt be called without parameters')
-    }
     const { data } = await axios.post(api('/module'), module)
     commit('addModule', data)
   },
 
+  async deleteModule ({ commit }, { moduleId }) {
+    await axios.delete(api('/module/' + moduleId))
+    commit('removeModule', { moduleId })
+  },
+
   async updateModule ({ commit }, { id, module }) {
-    const { data } = await axios.post(api('/module/' + id), module)
+    const { data } = await axios.put(api('/module/' + id), module)
     commit('addModule', data)
   }
 }

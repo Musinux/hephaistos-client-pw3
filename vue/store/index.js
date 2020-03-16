@@ -5,6 +5,8 @@ import userStore from './modules/user'
 import modulesStore from './modules/modules'
 import sessionsStore from './modules/sessions'
 import attemptsStore from './modules/attempts'
+import usersStore from './modules/users'
+import rolesStore from './modules/roles'
 
 Vue.use(Vuex)
 
@@ -18,6 +20,8 @@ export default new Vuex.Store({
     user: userStore,
     modules: modulesStore,
     sessions: sessionsStore,
-    attempts: attemptsStore
+    attempts: attemptsStore,
+    users: usersStore,
+    roles: rolesStore
   }
 })
