@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import axios from 'axios'
 import config from '../../client.config'
-import accessRights from '../../../src/models/access-rights.definition.js'
+import accessRights from '../access-rights.definition.js'
 
 /** @param {String} path */
 function api (path) {
